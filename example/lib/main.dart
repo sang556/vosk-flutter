@@ -29,7 +29,7 @@ class VoskFlutterDemo extends StatefulWidget {
 
 class _VoskFlutterDemoState extends State<VoskFlutterDemo> {
   static const _textStyle = TextStyle(fontSize: 30, color: Colors.black);
-  static const _modelName = 'vosk-model-small-en-us-0.15';
+  static const _modelName = "vosk-model-small-cn-0.22";//'vosk-model-small-en-us-0.15';
   static const _sampleRate = 16000;
 
   final _vosk = VoskFlutterPlugin.instance();
@@ -47,25 +47,47 @@ class _VoskFlutterDemoState extends State<VoskFlutterDemo> {
   @override
   void initState() {
     super.initState();
+    loadModelFromLocal();
+  }
 
+  void loadModelFromLocal() async {
+    final modelPath = await ModelLoader().loadFromAssets('assets/models/$_modelName.zip');
+    _model = await _vosk.createModel(modelPath);
+
+    _recognizer = await _vosk.createRecognizer(
+      model: _model!,
+      sampleRate: _sampleRate,
+      //grammar: ['one', 'two', 'three'],
+    );
+
+    if (Platform.isAndroid) {
+      _vosk
+          .initSpeechService(_recognizer!) // init speech service
+          .then((speechService) =>
+          setState(() => _speechService = speechService))
+          .catchError((e) => setState(() => _error = e.toString()));
+    }
+  }
+
+  void loadModelFromNetwork() {
     _modelLoader
         .loadModelsList()
         .then((modelsList) =>
-            modelsList.firstWhere((model) => model.name == _modelName))
+        modelsList.firstWhere((model) => model.name == _modelName))
         .then((modelDescription) =>
-            _modelLoader.loadFromNetwork(modelDescription.url)) // load model
+        _modelLoader.loadFromNetwork(modelDescription.url)) // load model
         .then(
             (modelPath) => _vosk.createModel(modelPath)) // create model object
         .then((model) => setState(() => _model = model))
         .then((_) => _vosk.createRecognizer(
-            model: _model!, sampleRate: _sampleRate)) // create recognizer
+        model: _model!, sampleRate: _sampleRate)) // create recognizer
         .then((value) => _recognizer = value)
         .then((recognizer) {
       if (Platform.isAndroid) {
         _vosk
             .initSpeechService(_recognizer!) // init speech service
             .then((speechService) =>
-                setState(() => _speechService = speechService))
+            setState(() => _speechService = speechService))
             .catchError((e) => setState(() => _error = e.toString()));
       }
     }).catchError((e) {
