@@ -2,9 +2,12 @@
     package="org.vosk.vosk_flutter_example">
 
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
+
     <application
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher"
+        android:enableOnBackInvokedCallback="true"
         android:label="Vosk Flutter Plugin Demo">
         <activity
             android:name=".MainActivity"

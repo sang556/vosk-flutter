@@ -89,3 +89,15 @@ await speechService.start();
 ```
 #### Linux & Windows
 Use any suitable plugin to get the microphone input and [pass it to a recognizer](#recognize-audio-data)
+
+
+#### 语音识别语言模型文件信息
+
+中文：vosk-model-small-cn-0.22             40M
+英语：vosk-model-small-en-us-0.15          42M
+法语：vosk-model-small-fr-0.22             41M
+德语：vosk-model-small-de-0.15             45M
+俄语：vosk-model-small-ru-0.22             45M
+日语：vosk-model-small-ja-0.22             48M
+西班牙语：vosk-model-small-es-0.42          39M
+葡萄牙语：vosk-model-small-pt-0.3           31M
