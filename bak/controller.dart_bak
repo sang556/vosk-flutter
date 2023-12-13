@@ -1,0 +1,594 @@
+import 'dart:async';
+import 'dart:convert';
+import 'dart:developer';
+import 'dart:isolate';
+import 'dart:typed_data';
+import 'package:archive/archive_io.dart';
+import 'package:get/get.dart';
+import 'dart:io';
+import 'package:flutter/material.dart';
+import 'package:speech_to_text/speech_to_text.dart';
+import 'package:tianqu/base_framework/utils/log_utils.dart';
+import 'package:tianqu/routes/app_routes.dart';
+import 'package:tianqu/utils/ble/common_ble_utils.dart';
+import 'package:tianqu/modules/models/base_ble_logic.dart';
+import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:permission_handler/permission_handler.dart';
+import 'package:speech_to_text/speech_recognition_error.dart';
+import 'package:speech_to_text/speech_recognition_result.dart';
+import 'package:tianqu/modules/models/jump_egg/cmd_const.dart';
+import 'package:tianqu/modules/models/jump_egg/scene_mode/widget/tianqu_toast.dart';
+import 'package:tianqu/modules/models/jump_egg/voice_mode/widgets/voice_model.dart';
+import 'package:tianqu/modules/models/jump_egg/scene_mode/widget/frequency_model.dart';
+import 'package:vosk_flutter/vosk_flutter.dart';
+import 'package:flowder_ex/flowder_ex.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:path/path.dart' as path;
+
+import '../../../../../base_framework/utils/permission_utils.dart';
+
+class VoiceModeController extends BaseBleLogic
+    with GetTickerProviderStateMixin {
+  VoiceModeController();
+
+  // 默认语音指令列表
+  List<VoiceDataModel> startDefaultList = [
+    VoiceDataModel(title: 'start'.tr, value: 10),
+    VoiceDataModel(title: 'fast'.tr, value: 10),
+    VoiceDataModel(title: 'add_speed'.tr, value: 15),
+  ];
+  List<VoiceDataModel> stopDefaultList = [
+    VoiceDataModel(title: 'stop'.tr, value: 10),
+    VoiceDataModel(title: 'no'.tr, value: 10),
+  ];
+  List<VoiceDataModel> defaultList = [
+    VoiceDataModel(title: 'shockModeCCJG'.tr, value: 1),
+    VoiceDataModel(title: 'shockModeJRJJ'.tr, value: 2),
+    VoiceDataModel(title: 'shockModeZRYX'.tr, value: 3),
+    VoiceDataModel(title: 'shockModeYYDC'.tr, value: 4),
+    VoiceDataModel(title: 'shockModeJQYS'.tr, value: 5),
+    VoiceDataModel(title: 'shockModeODSL'.tr, value: 6),
+    VoiceDataModel(title: 'shockModeLMBD'.tr, value: 7),
+    VoiceDataModel(title: 'shockModeCQCL'.tr, value: 8),
+    VoiceDataModel(title: 'shockModeSMRG'.tr, value: 9),
+  ];
+
+  // 创建了一个 SpeechToText 类的对象，并将其赋值给变量 speech。
+  final SpeechToText speech = SpeechToText();
+  // 上一次的文本
+  String lastWords = '';
+  // 最近的错误信息
+  String lastError = '';
+  // 最近的状态信息
+  String lastStatus = '';
+  // 当前的语言环境标识符
+  String _currentLocaleId = '';
+  // 是否存在
+  bool isExist = false;
+
+
+  //-------------------Android专用---------------------
+  late LanguageModelDescription _lmi; // 模型描述对象
+  static const _sampleRate = 16000; // 采样率
+  late VoskFlutterPlugin _vosk; // Vosk插件对象
+  final _modelLoader = ModelLoader(); // 模型加载器
+  String? _error; // 错误信息
+  Model? _model; // 模型对象
+  Recognizer? _recognizer; // 识别器对象
+  SpeechService? _speechService; // 语音服务对象
+  // 文件信息
+  String fileInfo = ''; // 文件信息
+  // 下载进度
+  double progress = 0.0; // 下载进度
+  // 任务状态
+  String taskStatus = ''; // 任务状态
+  DownloaderCore? core; // 下载器核心对象
+  static const _defaultDownloadDir = "Download"; // 默认下载目录
+  static const _fileSuffix = ".zip"; // 文件后缀
+  bool isLoading = false; // 是否正在加载
+  List<OverlayEntry> overlayEntryList = []; // 覆盖层条目列表
+  final GlobalKey tooltipKey = GlobalKey(); // 工具提示键
+
+  /*https://alphacephei.com/vosk/models/vosk-model-small-en-us-0.15.zip
+  https://alphacephei.com/vosk/models/vosk-model-small-cn-0.22.zip
+  https://alphacephei.com/vosk/models/vosk-model-small-fr-0.22.zip
+  https://alphacephei.com/vosk/models/vosk-model-small-de-0.15.zip
+  https://alphacephei.com/vosk/models/vosk-model-small-ru-0.22.zip
+  https://alphacephei.com/vosk/models/vosk-model-small-ja-0.22.zip
+  https://alphacephei.com/vosk/models/vosk-model-small-es-0.42.zip
+  https://alphacephei.com/vosk/models/vosk-model-small-pt-0.3.zip*/
+  List<LanguageModelDescription> modelsList = [
+    LanguageModelDescription(lang: "en", name: "vosk-model-small-en-us-0.15", size: 41205931, url: "https://tiandongli.cn/guides/models/vosk-model-small-en-us-0.15.zip", langText: "", md5: "", obsolete: true, sizeText: "", type: "", version: ""),
+    LanguageModelDescription(lang: "zh", name: "vosk-model-small-cn-0.22", size: 43898754, url: "https://tiandongli.cn/guides/models/vosk-model-small-cn-0.22.zip", langText: "", md5: "", obsolete: true, sizeText: "", type: "", version: ""),
+    LanguageModelDescription(lang: "fr", name: "vosk-model-small-fr-0.22", size: 42233323, url: "https://tiandongli.cn/guides/models/vosk-model-small-fr-0.22.zip", langText: "", md5: "", obsolete: true, sizeText: "", type: "", version: ""),
+    LanguageModelDescription(lang: "de", name: "vosk-model-small-de-0.15", size: 46499967, url: "https://tiandongli.cn/guides/models/vosk-model-small-de-0.15.zip", langText: "", md5: "", obsolete: true, sizeText: "", type: "", version: ""),
+    LanguageModelDescription(lang: "ru", name: "vosk-model-small-ru-0.22", size: 46236750, url: "https://tiandongli.cn/guides/models/vosk-model-small-ru-0.22.zip", langText: "", md5: "", obsolete: true, sizeText: "", type: "", version: ""),
+    LanguageModelDescription(lang: "ja", name: "vosk-model-small-ja-0.22", size: 49704573, url: "https://tiandongli.cn/guides/models/vosk-model-small-ja-0.22.zip", langText: "", md5: "", obsolete: true, sizeText: "", type: "", version: ""),
+    LanguageModelDescription(lang: "es", name: "vosk-model-small-es-0.42", size: 39817833, url: "https://tiandongli.cn/guides/models/vosk-model-small-es-0.42.zip", langText: "", md5: "", obsolete: true, sizeText: "", type: "", version: ""),
+    LanguageModelDescription(lang: "pt", name: "vosk-model-small-pt-0.3", size: 32453112, url: "https://tiandongli.cn/guides/models/vosk-model-small-pt-0.3.zip", langText: "", md5: "", obsolete: true, sizeText: "", type: "", version: ""),
+  ];
+  /*
+    该函数用于显示一个浮层（tooltip）在屏幕上。它接受一个BuildContext参数，用于确定浮层在哪个上下文中显示。
+    函数首先检查参数是否为空，以及是否有可用的上下文，如果没有则提前返回。然后它移除之前的浮层，
+    并获取当前上下文的RenderBox对象。接下来，它计算浮层的目标位置，并根据目标位置创建一个OverlayEntry对象。
+    最后，它将OverlayEntry插入到当前上下文的Overlay中，并将OverlayEntry添加到列表中。
+    最后，浮层在延迟后被移除。
+  */
+  void _showTooltip(BuildContext? context) {
+    if(context == null || tooltipKey.currentContext == null)return;
+    removeOverLay();
+    final OverlayState overlayState = Overlay.of(context);
+    final RenderBox renderBox = tooltipKey.currentContext!.findRenderObject() as RenderBox;
+    final Offset target = renderBox.localToGlobal(Offset.zero);
+    Offset _target = Offset(renderBox.size.width+target.dx, target.dy);
+    // Log.e("${_target.dx}");
+    final OverlayEntry overlayEntry = OverlayEntry(
+      builder: (context) => Positioned(
+        left: _target.dx <= 40.w?0:_target.dx - 40,
+        top: _target.dy - 50.h, // Adjust the position of the tooltip as needed
+        child: Card(
+          color: const Color(0xffFF8192),
+          shadowColor: Colors.transparent,
+          child: Padding(
+            padding: const EdgeInsets.all(8.0),
+            child: Text("${progress.toInt()}%",style: const TextStyle(
+              color: Colors.white,
+            ),),
+          ),
+        ),
+      ),
+    );
+
+
+    overlayState.insert(overlayEntry);
+    // Remove the tooltip after a delay
+    overlayEntryList.add(overlayEntry);
+  }
+
+  @override
+  void onReady() {
+    super.onReady();
+    _initData();
+    checkAndRequestPermission().then((status) {
+      if (status) {
+        //iOS平台采用speech_to_text插件
+        if (Platform.isIOS) {
+          initSpeechState().then((value) {
+            if (value) {
+              startListening();
+            }
+          });
+          //Android平台采用vosk_flutter插件
+        } else if (Platform.isAndroid) {
+          _vosk = VoskFlutterPlugin.instance();
+          Locale? locale = Get.deviceLocale;
+          _lmi = getLanguage(locale?.languageCode ?? "en");
+          loadModelFromDownload();
+        }
+      }
+    });
+  }
+
+  // 初始化数据
+  _initData() {
+    // 获取本地存储
+    List<VoiceDataModel> saveStartList = FrequencyRepository.getStartVoice();
+    List<VoiceDataModel> saveStopList = FrequencyRepository.getStopVoice();
+    if (saveStartList.isNotEmpty) {
+      startDefaultList.addAll(List.from(saveStartList));
+    }
+    if (saveStopList.isNotEmpty) {
+      stopDefaultList.addAll(List.from(saveStopList));
+    }
+    update(["voice_mode"]);
+  }
+
+  //-------------------Android专用 start---------------------
+  ///
+  /// 创建语音识别器(Android专用)
+  Future<void> createRecognizer(modelPath) async {
+    removeOverLay();
+    _model = await _vosk.createModel(modelPath);
+    _recognizer = await _vosk.createRecognizer(
+      model: _model!,
+      sampleRate: _sampleRate,
+      //grammar: ['one', 'two', 'three'],
+    );
+  }
+
+  ///
+  /// 初始化语音识别服务(Android专用)
+  void initSpeechService() {
+    if (Platform.isAndroid) {
+      _vosk
+          .initSpeechService(_recognizer!) // init speech service
+          .then((speechService) {
+            _speechService = speechService;
+            startListening();
+            initSpeechListener();
+      }).catchError((e) {
+        _error = e.toString();
+      });
+    }
+  }
+
+  ///
+  /// 初始化语音识别监听
+  void initSpeechListener() {
+    _speechService?.onPartial().listen((event) {
+      var result = json.decode(event);
+      //lastWords = result["partial"];
+      log("onPartial() result: $result");
+      //update(["voice_mode"]);
+    });
+
+    _speechService?.onResult().listen((event) {
+      var result = json.decode(event);
+      //去掉空格
+      lastWords = result["text"].replaceAll(" ", "");
+      findMatch();
+      log("onResult() result: $lastWords");
+      update(["voice_mode"]);
+    });
+  }
+
+  ///
+  /// 加载语音模型文件(Android专用)
+  void loadModelFromDownload() async {
+    final directory = await getApplicationDocumentsDirectory();
+    String modelPath = directory.path + Platform.pathSeparator + _defaultDownloadDir + Platform.pathSeparator + _lmi.name + _fileSuffix;
+    final modelName = path.basenameWithoutExtension(modelPath);
+    if (!await _modelLoader.isModelAlreadyLoaded(modelName)) {
+      initSpeechServiceByDownloadFile(_lmi.url);
+    } else {
+      modelPath = await loadFromLocalFile(modelPath);
+      await createRecognizer(modelPath);
+      initSpeechService();
+    }
+  }
+
+  /// Load a model from the app local file. Returns the path to the loaded model. [Only Android]
+  ///
+  /// By default, this method will not reload an already loaded model, you can
+  /// change this behaviour using the [forceReload] flag.
+  /*
+    这个函数是一个异步函数，用于从本地文件加载模型，并返回加载后的模型路径。
+    如果模型已经加载过并且不需要强制刷新，则直接返回已加载的模型路径。
+    如果模型需要重新加载，则读取文件内容，并进行解压缩，然后返回解压缩后的模型路径。
+    函数还会记录加载模型的时间并更新一些状态。
+  */
+  Future<String> loadFromLocalFile(
+      String filePath, {
+        bool forceReload = false,
+      }) async {
+    // removeOverLay();
+    final modelName = path.basenameWithoutExtension(filePath);
+    if (!forceReload && await _modelLoader.isModelAlreadyLoaded(modelName)) {
+      final modelPathValue = await _modelLoader.modelPath(modelName);
+      log('Model already loaded to $modelPathValue', name: 'ModelLoader');
+      return modelPathValue;
+    }
+    final start = DateTime.now();
+    //final bytes = await (assetBundle ?? rootBundle).load(asset);
+    final Uint8List bytes = await File(filePath).readAsBytes();
+    final decompressionPath = await _extractModel(bytes);
+    final decompressedModelRoot = path.join(decompressionPath, modelName);
+    log('Model loaded to $decompressedModelRoot in ${DateTime.now().difference(start).inMilliseconds}ms', name: 'ModelLoader',);
+    isLoading = false;
+    update(["voice_mode"]);
+    return decompressedModelRoot;
+  }
+
+  /*
+    这个函数用于移除一个overlayEntryList中的所有元素。
+    它首先检查overlayEntryList是否非空，如果是，则遍历overlayEntryList中的每个元素，调用其remove()方法和removeAt()方法来移除元素。
+  */
+  void removeOverLay(){
+    if(overlayEntryList.isNotEmpty){
+      for(int i = 0; i < overlayEntryList.length; i++){
+        overlayEntryList[i].remove();
+        overlayEntryList.removeAt(i);
+      }
+    }
+  }
+
+  ///
+  /// 解压模型压缩文件(Android专用)
+  Future<String> _extractModel(Uint8List bytes) async {
+    final archive = ZipDecoder().decodeBytes(bytes);
+    final decompressionPath = await _defaultDecompressionPath();
+    await Isolate.run(() => extractArchiveToDisk(archive, decompressionPath));
+
+    return decompressionPath;
+  }
+
+  static Future<String> _defaultDecompressionPath() async => path.join((await getApplicationDocumentsDirectory()).path, 'models');
+
+  ///
+  ///flowder_ex插件下载(Android专用)
+  void initSpeechServiceByDownloadFile(url) async {
+    final directory = await getApplicationDocumentsDirectory();
+    String modelPath = directory.path + Platform.pathSeparator + _defaultDownloadDir + Platform.pathSeparator + _lmi.name + _fileSuffix;
+
+    final options = DownloaderUtils(
+      progressCallback: (current, total) {
+        progress = (current / total) * 100;
+        isLoading = true;
+        update(["voice_mode"]);
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          _showTooltip(Get.context);
+        });
+        log("语音识别系统-> 语言模型下载进度... current: $current total: $total progress $progress");
+      },
+      file: File(modelPath),
+      progress: ProgressImplementation(),
+      onDone: () async {
+        modelPath = await loadFromLocalFile(modelPath);
+        await createRecognizer(modelPath);
+        initSpeechService();
+      },
+      deleteOnCancel: true, accessToken: '',
+    );
+    core = await Flowder.download(url, options);
+  }
+
+  ///获取语言模型(Android专用)
+  LanguageModelDescription getLanguage(String language) {
+    return modelsList.firstWhere((model) => model.lang == language, orElse: ()=> modelsList[0]);
+  }
+
+  //-------------------Android专用 end---------------------
+
+  //-------------------iOS专用 start---------------------
+  // 初始化语音识别状态
+  Future initSpeechState() async {
+    try {
+      var hasSpeech = await speech.initialize(
+        onError: errorListener,
+        onStatus: statusListener,
+        debugLogging: true,
+      );
+      if (hasSpeech) {
+        var systemLocale = await speech.systemLocale();
+        _currentLocaleId = systemLocale?.localeId ?? 'zh-Hans-CN';
+        if (_currentLocaleId != 'zh-Hans-CN') {
+          _currentLocaleId = 'en_US';
+        }
+        log("当前系统语言：$_currentLocaleId");
+      }
+      update(["voice_mode"]);
+      return true;
+    } catch (e) {
+      lastError = '语音识别初始化失败: ${e.toString()}';
+      log('-------------$lastError');
+      update(["voice_mode"]);
+      return false;
+    }
+  }
+
+  // 处理语音识别结果
+  void resultListener(SpeechRecognitionResult result) {
+    lastWords = result.recognizedWords;
+    log('语音识别系统-> 您说：$lastWords');
+    update(["voice_mode"]);
+  }
+
+  void statusListener(String status) {
+    if(Get.routing.current != AppRoutes.VoiceMode)return;
+    lastStatus = status;
+    update(["voice_mode"]);
+    //Log.d(status);
+    if (lastStatus == 'done') {
+      findMatch();
+      Future.delayed(const Duration(milliseconds: 200),(){
+        startListening();
+      });
+    }
+  }
+
+  void errorListener(SpeechRecognitionError error) {
+    //log('Received error status: $error, listening: ${speech.isListening}');
+  }
+
+  //-------------------iOS专用 end---------------------
+
+  ///
+  /// 开始语音识别
+  void startListening() {
+    lastWords = '';
+    lastError = '';
+
+    if (Platform.isIOS) {
+      speech.listen(
+        onResult: resultListener,
+        partialResults: true,
+        cancelOnError: true,
+        listenMode: ListenMode.confirmation,
+        localeId: _currentLocaleId,
+        onSoundLevelChange: soundLevelListener,
+        listenFor: const Duration(seconds: 10),
+        pauseFor: const Duration(seconds: 2),
+      );
+    } else if (Platform.isAndroid) {
+      _speechService?.start();
+    }
+  }
+  void soundLevelListener(double level) {
+    //Log.d(level);
+  }
+  ///
+  /// 停止语音识别
+  void stopListening() {
+    if (Platform.isIOS) {
+      speech.stop();
+    } else if (Platform.isAndroid) {
+      _speechService?.stop();
+    }
+  }
+
+  ///
+  /// 取消语音识别
+  void cancelListening() {
+    if (Platform.isIOS) {
+      speech.cancel();
+    } else if (Platform.isAndroid) {
+      _speechService?.cancel();
+      _speechService?.dispose();
+      _speechService = null;
+    }
+  }
+
+  ///
+  /// 检查并请求权限
+  Future<bool> checkAndRequestPermission() async {
+    if (!(await PermissionUtil.getPermissionStatus(Permission.microphone)) || !(await PermissionUtil.getPermissionStatus(Permission.speech))) {
+      Get.back();
+      return Future.value(false);
+    }
+    return Future.value(true);
+  }
+
+  ///
+  /// 查找匹配语音指令
+  void findMatch() {
+    List<List<VoiceDataModel>> arrays = [
+      defaultList,
+      stopDefaultList,
+      startDefaultList,
+    ];
+    bool matchFound = false;
+    int matchedArrayIndex = -1;
+    VoiceDataModel? item;
+    for (int i = 0; i < arrays.length; i++) {
+      if (matchFound) {
+        break;
+      }
+
+      List<VoiceDataModel> array = arrays[i];
+
+      // 尝试全句匹配
+      for (VoiceDataModel element in array) {
+        if (element.title == lastWords) {
+          log('语音识别系统-> 匹配到设定关键词：$lastWords');
+          matchFound = true;
+          matchedArrayIndex = i;
+          item = element;
+          break; // 停止继续匹配当前列表
+        }
+      }
+
+      if (!matchFound) {
+        // 尝试部分匹配
+        for (VoiceDataModel element in array) {
+          if (lastWords.contains(element.title)) {
+            log('语音识别系统-> 尝试部分匹配到设定关键词：$lastWords');
+            matchFound = true;
+            matchedArrayIndex = i;
+            item = element;
+            break; // 停止继续匹配当前列表
+          }
+          if(lastWords.replaceAll(" ", "").toLowerCase().contains(element.title.replaceAll(" ", "").toLowerCase())){
+            log('语音识别系统-> 尝试部分匹配到设定关键词：$lastWords');
+            matchFound = true;
+            matchedArrayIndex = i;
+            item = element;
+            break;
+          }
+        }
+      }
+    }
+
+    if (matchFound && item != null) {
+      switch (matchedArrayIndex) {
+        // 停止指令
+        case 1:
+          CommonBleUtils.send(
+            device,
+            bleDevice,
+            CmdConst.cmdStandby,
+            [CmdConst.motorAll, 0x00],
+            false,
+          );
+          break;
+        // 开始指令
+        case 2:
+          CommonBleUtils.send(
+            device,
+            bleDevice,
+            CmdConst.cmdGear,
+            [CmdConst.motorAll, item.value],
+            false,
+          );
+          break;
+        default:
+          CommonBleUtils.send(
+            device,
+            bleDevice,
+            CmdConst.cmdFixed,
+            [CmdConst.motorAll, item.value],
+            false,
+          );
+      }
+      log('语音识别系统-> 匹配成功的数组索引：$matchedArrayIndex');
+      log("语音识别系统-> 匹配成功名字：${item.title}");
+      log("语音识别系统-> 匹配成功强度：${item.value}");
+    } else {
+      log("语音识别系统-> 没有匹配到关键词！");
+    }
+  }
+
+  ///
+  /// 权限提示对话框
+  permissionTipsDialog() {
+    XHToast.showAlertDialogWithContent(
+      insetPadding:
+          const EdgeInsets.symmetric(horizontal: 60.0, vertical: 24.0),
+      enableKeyboardSafeArea: false,
+      padding: const EdgeInsets.all(14).w,
+      isTitle: false,
+      confirmText: 'setting'.tr,
+      child: Column(
+        children: [
+          Text(
+            'prompt_info'.tr,
+            style: TextStyle(color: const Color(0xff212121), fontSize: 16.sp),
+          ),
+          SizedBox(
+            height: 20.h,
+          ),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10),
+            child: Text(
+              'need_mic_phone'.tr,
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: const Color(0xff212121),
+                fontSize: 16.sp,
+              ),
+            ),
+          ),
+        ],
+      ),
+      cancel: () {
+        Get.back();
+      },
+      confirm: () {
+        openAppSettings().then((value) {
+          log(value.toString());
+        });
+      },
+    );
+  }
+
+  @override
+  void onClose() {
+    cancelListening();
+    CommonBleUtils.send(device, bleDevice, CmdConst.cmdStandby, [CmdConst.motorAll, 0x00], false,);
+    removeOverLay();
+    if(Platform.isAndroid){
+      core?.pause();
+      core?.cancel();
+    }
+    super.onClose();
+  }
+}

@@ -25,14 +25,6 @@ packages:
       url: "https://pub.flutter-io.cn"
     source: hosted
     version: "2.11.0"
-  background_downloader:
-    dependency: "direct main"
-    description:
-      name: background_downloader
-      sha256: "0873a939f5a301872cb7614e12f759fbccef2e3ed0d0d37b540dde7611275b12"
-      url: "https://pub.flutter-io.cn"
-    source: hosted
-    version: "7.12.3"
   boolean_selector:
     dependency: transitive
     description:
@@ -98,13 +90,13 @@ packages:
     source: hosted
     version: "3.0.3"
   dio:
-    dependency: transitive
+    dependency: "direct overridden"
     description:
       name: dio
-      sha256: "417e2a6f9d83ab396ec38ff4ea5da6c254da71e4db765ad737a42af6930140b7"
+      sha256: "7d328c4d898a61efc3cd93655a0955858e29a0aa647f0f9e02d59b3bb275e2e8"
       url: "https://pub.flutter-io.cn"
     source: hosted
-    version: "5.3.3"
+    version: "4.0.6"
   fake_async:
     dependency: transitive
     description:
@@ -215,14 +207,6 @@ packages:
       url: "https://pub.flutter-io.cn"
     source: hosted
     version: "1.0.1"
-  logging:
-    dependency: transitive
-    description:
-      name: logging
-      sha256: "623a88c9594aa774443aa3eb2d41807a48486b5613e67599fb4c41c0ad47c340"
-      url: "https://pub.flutter-io.cn"
-    source: hosted
-    version: "1.2.0"
   matcher:
     dependency: transitive
     description:
@@ -247,14 +231,6 @@ packages:
       url: "https://pub.flutter-io.cn"
     source: hosted
     version: "1.9.1"
-  mime:
-    dependency: transitive
-    description:
-      name: mime
-      sha256: e4ff8e8564c03f255408decd16e7899da1733852a9110a58fe6d1b817684a63e
-      url: "https://pub.flutter-io.cn"
-    source: hosted
-    version: "1.0.4"
   package_config:
     dependency: transitive
     description:
@@ -323,18 +299,18 @@ packages:
     dependency: transitive
     description:
       name: permission_handler
-      sha256: "284a66179cabdf942f838543e10413246f06424d960c92ba95c84439154fcac8"
+      sha256: bc56bfe9d3f44c3c612d8d393bd9b174eb796d706759f9b495ac254e4294baa5
       url: "https://pub.flutter-io.cn"
     source: hosted
-    version: "11.0.1"
+    version: "10.4.5"
   permission_handler_android:
     dependency: transitive
     description:
       name: permission_handler_android
-      sha256: f9fddd3b46109bd69ff3f9efa5006d2d309b7aec0f3c1c5637a60a2d5659e76e
+      sha256: "59c6322171c29df93a22d150ad95f3aa19ed86542eaec409ab2691b8f35f9a47"
       url: "https://pub.flutter-io.cn"
     source: hosted
-    version: "11.1.0"
+    version: "10.3.6"
   permission_handler_apple:
     dependency: transitive
     description:
@@ -468,22 +444,6 @@ packages:
       url: "https://pub.flutter-io.cn"
     source: hosted
     version: "1.10.0"
-  sqflite:
-    dependency: transitive
-    description:
-      name: sqflite
-      sha256: "591f1602816e9c31377d5f008c2d9ef7b8aca8941c3f89cc5fd9d84da0c38a9a"
-      url: "https://pub.flutter-io.cn"
-    source: hosted
-    version: "2.3.0"
-  sqflite_common:
-    dependency: transitive
-    description:
-      name: sqflite_common
-      sha256: "8ed044102f3135add97be8653662052838859f5400075ef227f8ad72ae320803"
-      url: "https://pub.flutter-io.cn"
-    source: hosted
-    version: "2.5.0+1"
   stack_trace:
     dependency: transitive
     description:
@@ -516,14 +476,6 @@ packages:
       url: "https://pub.flutter-io.cn"
     source: hosted
     version: "0.3.1"
-  synchronized:
-    dependency: transitive
-    description:
-      name: synchronized
-      sha256: "5fcbd27688af6082f5abd611af56ee575342c30e87541d0245f7ff99faa02c60"
-      url: "https://pub.flutter-io.cn"
-    source: hosted
-    version: "3.1.0"
   term_glyph:
     dependency: transitive
     description:
@@ -564,14 +516,13 @@ packages:
       url: "https://pub.flutter-io.cn"
     source: hosted
     version: "11.7.1"
-  vosk_flutter_2:
+  vosk_flutter:
     dependency: "direct main"
     description:
-      name: vosk_flutter_2
-      sha256: d638f300e14f56cd292be7200b495cee62cd6f08e4ef09f980578a26c56995db
-      url: "https://pub.flutter-io.cn"
-    source: hosted
-    version: "1.0.5"
+      path: ".."
+      relative: true
+    source: path
+    version: "0.3.48"
   wav:
     dependency: "direct main"
     description:
@@ -621,5 +572,5 @@ packages:
     source: hosted
     version: "3.1.2"
 sdks:
-  dart: ">=3.1.2 <4.0.0"
-  flutter: ">=3.13.0"
+  dart: ">=3.1.0-185.0.dev <4.0.0"
+  flutter: ">=3.7.0"

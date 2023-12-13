@@ -5,12 +5,12 @@ import 'dart:typed_data';
 
 import 'package:archive/archive.dart';
 import 'package:archive/archive_io.dart';
-import 'package:background_downloader/background_downloader.dart';
+//import 'package:background_downloader/background_downloader.dart';
 import 'package:flowder_ex/flowder_ex.dart';
 import 'package:flutter/material.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:record/record.dart';
-import 'package:vosk_flutter_2/vosk_flutter_2.dart';
+import 'package:vosk_flutter/vosk_flutter.dart';
 import 'package:path/path.dart' as path;
 
 void main() {
@@ -38,7 +38,7 @@ class VoskFlutterDemo extends StatefulWidget {
 class _VoskFlutterDemoState extends State<VoskFlutterDemo> {
   static const _textStyle = TextStyle(fontSize: 30, color: Colors.black);
   late LanguageModelDescription _lmi;
-  static const _sampleRate = 16000;
+  static final _sampleRate = Platform.isAndroid ? 16000 : 44100;
 
   final _vosk = VoskFlutterPlugin.instance();
   final _modelLoader = ModelLoader();
@@ -59,8 +59,8 @@ class _VoskFlutterDemoState extends State<VoskFlutterDemo> {
   // 任务状态
   String taskStatus = '';
   // 任务
-  late DownloadTask task;
-  late FileDownloader fileDownloader;
+  //late DownloadTask task;
+  //late FileDownloader fileDownloader;
   static const _defaultDownloadDir = "Download";
   static const _fileSuffix = ".zip";
   /*https://alphacephei.com/vosk/models/vosk-model-small-en-us-0.15.zip
@@ -107,13 +107,13 @@ class _VoskFlutterDemoState extends State<VoskFlutterDemo> {
   ///
   /// 初始化语音识别服务
   void initSpeechService() {
-    if (Platform.isAndroid) {
+    //if (Platform.isAndroid) {
       _vosk
           .initSpeechService(_recognizer!) // init speech service
           .then((speechService) =>
           setState(() => _speechService = speechService))
           .catchError((e) => setState(() => _error = e.toString()));
-    }
+    //}
   }
 
   void loadModelFromLocal() async {
@@ -218,7 +218,7 @@ class _VoskFlutterDemoState extends State<VoskFlutterDemo> {
   }
 
   ///background_downloader插件下载(暂未使用)
-  initSpeechServiceByDownloadFile1(url) async {
+  /*initSpeechServiceByDownloadFile1(url) async {
     task = DownloadTask(
         url: url, // 下载地址
         // urlQueryParameters: {'q': 'pizza'},  // 请求参数
@@ -264,7 +264,7 @@ class _VoskFlutterDemoState extends State<VoskFlutterDemo> {
         taskStatus = msg;
       });
     });
-  }
+  }*/
 
   ///flowder_ex插件下载
   initSpeechServiceByDownloadFile(url) async {
@@ -310,7 +310,7 @@ class _VoskFlutterDemoState extends State<VoskFlutterDemo> {
         ),
       );
     } else {
-      return Platform.isAndroid ? _androidExample() : _commonExample();
+      return Platform.isAndroid || Platform.isIOS ? _androidExample() : _commonExample();
     }
   }
 

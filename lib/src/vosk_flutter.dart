@@ -17,7 +17,7 @@ class VoskFlutterPlugin {
   VoskFlutterPlugin._() {
     if (_supportsFFI()) {
       _voskLibrary = _loadVoskLibrary();
-    } else if (Platform.isAndroid) {
+    } else if (Platform.isAndroid || Platform.isIOS) {
       _channel.setMethodCallHandler(_methodCallHandler);
     } else {
       throw UnsupportedError(
@@ -50,7 +50,7 @@ class VoskFlutterPlugin {
         ),
         onError: completer.completeError,
       );
-    } else if (Platform.isAndroid) {
+    } else if (Platform.isAndroid || Platform.isIOS) {
       _pendingModels[modelPath] = completer;
       _channel.invokeMethod('model.create', modelPath);
     }

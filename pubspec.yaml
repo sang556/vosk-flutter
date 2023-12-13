@@ -45,6 +45,8 @@ flutter:
       android:
         package: org.vosk.vosk_flutter
         pluginClass: VoskFlutterPlugin
+      ios:
+        pluginClass: VoskFlutterPlugin
       linux:
         pluginClass: VoskFlutterPlugin
         ffiPlugin: true
