@@ -62,6 +62,13 @@ public final class SpeechService {
     }
     
     func stop() -> Bool {
+        do {
+            try AVAudioSession.sharedInstance().setCategory(.playback, mode: .default, policy: .default, options: .mixWithOthers);
+            try AVAudioSession.sharedInstance().setActive(true, options: .notifyOthersOnDeactivation);
+            self.audioEngine.reset();
+        } catch  {
+
+        }
         self.audioEngine.stop();
         return self.stopRecognizerThread();
     }
@@ -171,6 +178,14 @@ public final class RecognizerThread { // : Thread
 //                self.audioEngine.stop();
 //            }
 //            try self.audioEngine.start();
+            
+            do {
+                try AVAudioSession.sharedInstance().setCategory(.playAndRecord, mode: .spokenAudio, options: .defaultToSpeaker);
+                try AVAudioSession.sharedInstance().setActive(true, options: .notifyOthersOnDeactivation);
+                self.audioEngine.reset();
+            } catch  {
+
+            }
             
             //while(self.thread.isExecuting && (self.timeoutSamples == -1 || self.remainingSamples > 0)) {
                 let inputNode = self.audioEngine.inputNode;
