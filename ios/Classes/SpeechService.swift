@@ -82,6 +82,7 @@ public final class SpeechService {
     
     func shutdown() {
         self.audioEngine.stop();
+        self.audioEngine = nil;
     }
     
     func setPause(paused : Bool) {
@@ -144,20 +145,32 @@ public final class RecognizerThread { // : Thread
     func recognizeData(buffer : AVAudioPCMBuffer) -> String {
         let dataLen = Int(buffer.frameLength * 2);
         let channels = UnsafeBufferPointer(start: buffer.int16ChannelData, count: 1);
+        if self.paused {
+            return "";
+        }
         let endOfSpeech = channels[0].withMemoryRebound(to: Int8.self, capacity: dataLen) {
             vosk_recognizer_accept_waveform(recognizer, $0, Int32(dataLen));
         }
         let res = endOfSpeech == 1 ? vosk_recognizer_result(recognizer) : vosk_recognizer_partial_result(recognizer);
+        var result = "";
+        if res == nil {
+            return result;
+        }
         
+        do{
+            result = String(validatingUTF8: res!)!;
+        } catch {
+            print("recognizeData: Fatal error: Unexpectedly found nil while unwrapping an Optional value: \(error.localizedDescription)");
+        }
         DispatchQueue.main.async {
             if endOfSpeech == 1 {
-                self.listener.onResult(String(validatingUTF8: res!)!);
+                self.listener.onResult(result);
             } else {
-                self.listener.onPartialResult(String(validatingUTF8: res!)!);
+                self.listener.onPartialResult(result);
             }
         }
         
-        return String(validatingUTF8: res!)!;
+        return result;
     }
     
     func start() {
