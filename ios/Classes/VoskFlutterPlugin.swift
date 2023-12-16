@@ -23,6 +23,11 @@ public class VoskFlutterPlugin: NSObject, FlutterPlugin {
     }
     
     deinit {
+        for (key, value) in recognizersMap {
+            vosk_recognizer_free(value);
+            recognizersMap.removeValue(forKey: key);
+        }
+        
         channel.setMethodCallHandler(nil);
     }
     
@@ -47,8 +52,10 @@ public class VoskFlutterPlugin: NSObject, FlutterPlugin {
             //modelCreateProcessingQueue.async {
             DispatchQueue.main.async {
                 do {
-                    let model = VoskModel(modelPath: modelPath);
-                    self.modelsMap[modelPath] = model;
+                    if !self.modelsMap.contains(where: { $0.key == modelPath }) {
+                        let model = VoskModel(modelPath: modelPath);
+                        self.modelsMap[modelPath] = model;
+                    }
                     self.channel.invokeMethod("model.created", arguments: modelPath);
                 } catch var error {
                     let resultMap = ["modelPath": modelPath, "error": error] as [String : Any];
@@ -66,11 +73,21 @@ public class VoskFlutterPlugin: NSObject, FlutterPlugin {
                 result("Couldn't find model with this path. Pls, create model or send correct path.");
                 break;
             }
-            let recognizerId = recognizersMap.isEmpty ? 1 : recognizersMap.count + 1;
+            let recognizerId = recognizersMap.isEmpty ? 1 : recognizersMap.keys.sorted().last! + 1;
             do {
                 //let recognizer = Vosk(model: model!, sampleRate: Float(sampleRate));
                 let recognizer : OpaquePointer! = grammar == nil ? vosk_recognizer_new(model?.model, sampleRate) : vosk_recognizer_new_grm(model?.model, sampleRate, grammar);
                 recognizersMap[recognizerId] = recognizer;
+                if (recognizersMap.count > 10) {
+                    //if let firstKey = recognizersMap.first?.key {
+                    //    recognizersMap.removeValue(forKey: firstKey);
+                    //}
+                    let firstKey = recognizersMap.keys.sorted().first;
+                    //let firstRecognizer = firstKey.map({ ($0, recognizersMap[$0]!) });
+                    vosk_recognizer_free(recognizersMap[firstKey!]);
+                    //recognizersMap[firstKey!] = nil;
+                    recognizersMap.removeValue(forKey: firstKey!);
+                }
             } catch var error {
                 result("Can't create recognizer.");
                 break;
@@ -78,7 +95,7 @@ public class VoskFlutterPlugin: NSObject, FlutterPlugin {
             result(recognizerId);
         case "recognizer.setMaxAlternatives":
             let map = call.arguments as? Dictionary<String, Any>;
-            let recognizerId = map?["recognizerId"] as? Int ?? 0;
+            let recognizerId = map?["recognizerId"] as? Int ?? 1;
             let maxAlternatives = map?["maxAlternatives"] as? Int32 ?? 0;
             
             let recognizer = self.getRecognizerById(recognizerId);
@@ -86,7 +103,7 @@ public class VoskFlutterPlugin: NSObject, FlutterPlugin {
             result(nil);
         case "recognizer.setWords":
             let map = call.arguments as? Dictionary<String, Any>;
-            let recognizerId = map?["recognizerId"] as? Int ?? 0;
+            let recognizerId = map?["recognizerId"] as? Int ?? 1;
             let words = map?["words"] as? Bool ?? false;
             
             let recognizer = self.getRecognizerById(recognizerId);
@@ -94,7 +111,7 @@ public class VoskFlutterPlugin: NSObject, FlutterPlugin {
             result(nil);
         case "recognizer.setPartialWords":
             let map = call.arguments as? Dictionary<String, Any>;
-            let recognizerId = map?["recognizerId"] as? Int ?? 0;
+            let recognizerId = map?["recognizerId"] as? Int ?? 1;
             let partialWords = map?["partialWords"] as? Bool ?? false;
             
             let recognizer = self.getRecognizerById(recognizerId);
@@ -102,7 +119,7 @@ public class VoskFlutterPlugin: NSObject, FlutterPlugin {
             result(nil);
         case "recognizer.acceptWaveForm":
             let map = call.arguments as? Dictionary<String, Any>;
-            let recognizerId = map?["recognizerId"] as? Int ?? 0;
+            let recognizerId = map?["recognizerId"] as? Int ?? 1;
             let bytes = map?["bytes"] as? Array<UInt8> ?? [];
             let floats = map?["floats"] as? Array<UInt8> ?? [];
             
@@ -132,25 +149,25 @@ public class VoskFlutterPlugin: NSObject, FlutterPlugin {
             }
         case "recognizer.getResult":
             let map = call.arguments as? Dictionary<String, Any>;
-            let recognizerId = map?["recognizerId"] as? Int ?? 0;
+            let recognizerId = map?["recognizerId"] as? Int ?? 1;
             
             let recognizer = self.getRecognizerById(recognizerId);
             result(vosk_recognizer_result(recognizer));
         case "recognizer.getPartialResult":
             let map = call.arguments as? Dictionary<String, Any>;
-            let recognizerId = map?["recognizerId"] as? Int ?? 0;
+            let recognizerId = map?["recognizerId"] as? Int ?? 1;
             
             let recognizer = self.getRecognizerById(recognizerId);
             result(vosk_recognizer_partial_result(recognizer));
         case "recognizer.getFinalResult":
             let map = call.arguments as? Dictionary<String, Any>;
-            let recognizerId = map?["recognizerId"] as? Int ?? 0;
+            let recognizerId = map?["recognizerId"] as? Int ?? 1;
             
             let recognizer = self.getRecognizerById(recognizerId);
             result(vosk_recognizer_final_result(recognizer));
         case "recognizer.setGrammar":
             let map = call.arguments as? Dictionary<String, Any>;
-            let recognizerId = map?["recognizerId"] as? Int ?? 0;
+            let recognizerId = map?["recognizerId"] as? Int ?? 1;
             let grammar = map?["grammar"] as? String;
             
             let recognizer = self.getRecognizerById(recognizerId);
@@ -158,14 +175,14 @@ public class VoskFlutterPlugin: NSObject, FlutterPlugin {
             result(nil);
         case "recognizer.reset":
             let map = call.arguments as? Dictionary<String, Any>;
-            let recognizerId = map?["recognizerId"] as? Int ?? 0;
+            let recognizerId = map?["recognizerId"] as? Int ?? 1;
             
             let recognizer = self.getRecognizerById(recognizerId);
             vosk_recognizer_reset(recognizer);
             result(nil);
         case "recognizer.close":
             let map = call.arguments as? Dictionary<String, Any>;
-            let recognizerId = map?["recognizerId"] as? Int ?? 0;
+            let recognizerId = map?["recognizerId"] as? Int ?? 1;
             
             let recognizer = self.getRecognizerById(recognizerId);
             vosk_recognizer_free(recognizer);
@@ -173,7 +190,7 @@ public class VoskFlutterPlugin: NSObject, FlutterPlugin {
             result(nil);
         case "speechService.init":
             let map = call.arguments as? Dictionary<String, Any>;
-            let recognizerId = map?["recognizerId"] as? Int ?? 0;
+            let recognizerId = map?["recognizerId"] as? Int ?? 1;
             let sampleRate = map?["sampleRate"] as? Float ?? 0;
             
             let recognizer = self.getRecognizerById(recognizerId);
@@ -230,11 +247,14 @@ public class VoskFlutterPlugin: NSObject, FlutterPlugin {
             }
             speechService.shutdown();
             speechService = nil;
+            
+            recognizersMap
             result(nil);
         default:
             result(FlutterMethodNotImplemented);
         }
     }
+    
     private func getRecognizerById(_ recognizerId: Int)  -> OpaquePointer { //throws
         let recognizer = recognizersMap[recognizerId];
         if recognizer == nil {
